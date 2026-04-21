@@ -37,46 +37,21 @@ set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  std_msgs
-  sensor_msgs
-  geometry_msgs
-  nav_msgs
-  pcl_ros
-  message_generation
-)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
-add_service_files(
-  DIRECTORY srv
-  FILES
-  save_pcd.srv
-)
-
-generate_messages(
-  DEPENDENCIES
-  sensor_msgs
-  std_msgs
-  geometry_msgs
-)
-
-catkin_package(
-  CATKIN_DEPENDS
-    roscpp
-    std_msgs
-    sensor_msgs
-    geometry_msgs
-    pcl_ros
-  INCLUDE_DIRS
-    include
-  LIBRARIES
-    ${PROJECT_NAME}
-    nano_gicp
-    nanoflann
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/SavePcd.srv"
 )
 
 include_directories(include)
-include_directories(SYSTEM ${catkin_INCLUDE_DIRS})
 
 # Not all machines have <cpuid.h> available
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
@@ -92,28 +67,41 @@ add_library(nanoflann STATIC
   src/nano_gicp/nanoflann.cc
 )
 target_link_libraries(nanoflann ${PCL_LIBRARIES})
+ament_target_dependencies(nanoflann rclcpp sensor_msgs nav_msgs geometry_msgs pcl_conversions tf2_ros)
 
 # NanoGICP
 add_library(nano_gicp STATIC
-  src/nano_gicp/lsq_registration.cc
   src/nano_gicp/nano_gicp.cc
+  src/nano_gicp/lsq_registration.cc
 )
 target_link_libraries(nano_gicp ${PCL_LIBRARIES} ${OpenMP_LIBS} nanoflann)
+ament_target_dependencies(nano_gicp rclcpp sensor_msgs nav_msgs geometry_msgs pcl_conversions tf2_ros)
 
 # Odometry Node
 add_executable(dlio_odom_node src/dlio/odom_node.cc src/dlio/odom.cc)
-add_dependencies(dlio_odom_node ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
 target_compile_options(dlio_odom_node PRIVATE ${OpenMP_FLAGS})
-target_link_libraries(dlio_odom_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp)
+target_link_libraries(dlio_odom_node ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp)
+ament_target_dependencies(dlio_odom_node
+  rclcpp std_msgs sensor_msgs geometry_msgs
+  nav_msgs pcl_conversions tf2_ros)
 
 # Mapping Node
-add_executable (dlio_map_node src/dlio/map_node.cc src/dlio/map.cc)
-add_dependencies(dlio_map_node ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
+add_executable(dlio_map_node src/dlio/map_node.cc src/dlio/map.cc)
 target_compile_options(dlio_map_node PRIVATE ${OpenMP_FLAGS})
-target_link_libraries(dlio_map_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads)
+target_link_libraries(dlio_map_node ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads)
+ament_target_dependencies(dlio_map_node
+  rclcpp std_msgs sensor_msgs geometry_msgs
+  nav_msgs pcl_conversions tf2_ros)
 
-# Binaries
-install( TARGETS dlio_odom_node dlio_map_node
-         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION} )
-install( DIRECTORY cfg launch
-         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION} )
+# Link service type support
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} rosidl_typesupport_cpp)
+target_link_libraries(dlio_odom_node ${cpp_typesupport_target})
+target_link_libraries(dlio_map_node ${cpp_typesupport_target})
+
+# Install
+install(TARGETS dlio_odom_node dlio_map_node
+  DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY cfg launch
+  DESTINATION share/${PROJECT_NAME})
+
+ament_package()

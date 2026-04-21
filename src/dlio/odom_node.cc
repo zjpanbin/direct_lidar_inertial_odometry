@@ -13,18 +13,16 @@
 #include "dlio/odom.h"
 
 int main(int argc, char** argv) {
-
   mallopt(M_ARENA_MAX, 1);
-  
-  ros::init(argc, argv, "dlio_odom_node");
-  ros::NodeHandle nh("~");
 
-  dlio::OdomNode node(nh);
-  ros::AsyncSpinner spinner(0);
-  spinner.start();
-  node.start();
-  ros::waitForShutdown();
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<dlio::OdomNode>(rclcpp::NodeOptions());
+  node->start();
 
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(node);
+  executor.spin();
+
+  rclcpp::shutdown();
   return 0;
-
 }

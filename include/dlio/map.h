@@ -11,12 +11,13 @@
  ***********************************************************/
 
 #include "dlio/dlio.h"
+#include <direct_lidar_inertial_odometry/srv/save_pcd.hpp>
 
-class dlio::MapNode {
+class dlio::MapNode : public rclcpp::Node {
 
 public:
 
-  MapNode(ros::NodeHandle node_handle);
+  MapNode(const rclcpp::NodeOptions& options);
   ~MapNode();
 
   void start();
@@ -25,17 +26,15 @@ private:
 
   void getParams();
 
-  void callbackKeyframe(const sensor_msgs::PointCloud2ConstPtr& keyframe);
+  void callbackKeyframe(const sensor_msgs::msg::PointCloud2::SharedPtr keyframe);
 
-  bool savePcd(direct_lidar_inertial_odometry::save_pcd::Request& req,
-               direct_lidar_inertial_odometry::save_pcd::Response& res);
+  void savePcd(const std::shared_ptr<direct_lidar_inertial_odometry::srv::SavePcd::Request> req,
+               std::shared_ptr<direct_lidar_inertial_odometry::srv::SavePcd::Response> res);
 
-  ros::NodeHandle nh;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr keyframe_sub;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr map_pub;
 
-  ros::Subscriber keyframe_sub;
-  ros::Publisher map_pub;
-
-  ros::ServiceServer save_pcd_srv;
+  rclcpp::Service<direct_lidar_inertial_odometry::srv::SavePcd>::SharedPtr save_pcd_srv;
 
   pcl::PointCloud<PointType>::Ptr dlio_map;
   pcl::VoxelGrid<PointType> voxelgrid;

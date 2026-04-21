@@ -13,18 +13,12 @@
 #include "dlio/map.h"
 
 int main(int argc, char** argv) {
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<dlio::MapNode>(rclcpp::NodeOptions());
+  node->start();
 
-  mallopt(M_ARENA_MAX, 1);
+  rclcpp::spin(node);
 
-  ros::init(argc, argv, "dlio_map_node");
-  ros::NodeHandle nh("~");
-
-  dlio::MapNode node(nh);
-  ros::AsyncSpinner spinner(0);
-  spinner.start();
-  node.start();
-  ros::waitForShutdown();
-
+  rclcpp::shutdown();
   return 0;
-
 }
